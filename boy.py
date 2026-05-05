@@ -6,7 +6,7 @@ from aiogram.dispatcher.filters.state import State, StatesGroup
 
 logging.basicConfig(level=logging.INFO)
 
-TOKEN = "8681362491:AAGdfNaFG40U-A6fmBjC074fKifJU-h-tcA"
+TOKEN = "8681362491:AAEBlNlFTleUrHuXDRRuE-oXPl2tXc7NVgs"
 
 bot = Bot(token=TOKEN)
 storage = MemoryStorage()
