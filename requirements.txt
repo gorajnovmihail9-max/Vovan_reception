@@ -1,1 +1,1 @@
-python-telegram-bot[http2]==20.7
+aiogram==3.7.0
