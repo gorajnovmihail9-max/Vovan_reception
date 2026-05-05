@@ -4,6 +4,22 @@ from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import State, StatesGroup
 
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
+
+class Handler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b'OK')
+    def log_message(self, *args):
+        pass
+
+def run_server():
+    HTTPServer(('0.0.0.0', 8080), Handler).serve_forever()
+
+threading.Thread(target=run_server, daemon=True).start()
+
 logging.basicConfig(level=logging.INFO)
 
 TOKEN = "8681362491:AAEBlNlFTleUrHuXDRRuE-oXPl2tXc7NVgs"
