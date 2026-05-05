@@ -1,68 +1,56 @@
-import sys
+import asyncio
 import logging
-from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, ConversationHandler
+from aiogram import Bot, Dispatcher, F
+from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import State, StatesGroup
+from aiogram.fsm.storage.memory import MemoryStorage
+from aiogram.filters import CommandStart
 
 logging.basicConfig(level=logging.INFO)
 
 TOKEN = "8681362491:AAGdfNaFG40U-A6fmBjC074fKifJU-h-tcA"
 
-WAITING_PROBLEM = 1
-WAITING_OFFER = 2
+class Form(StatesGroup):
+    problem = State()
+    offer = State()
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    keyboard = [[KeyboardButton("🚀 Создать заявку")]]
-    markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-    await update.message.reply_text(
-        "👋 Привет! Опиши свою проблему или желание — и предложи что-то взамен.\n\nНажми кнопку чтобы начать 👇",
-        reply_markup=markup
-    )
+bot = Bot(token=TOKEN)
+dp = Dispatcher(storage=MemoryStorage())
 
-async def new_request(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("📝 Шаг 1 из 2\n\nОпиши свою проблему или желание и нажми отправить ✉️")
-    return WAITING_PROBLEM
+kb = ReplyKeyboardMarkup(
+    keyboard=[[KeyboardButton(text="🚀 Создать заявку")]],
+    resize_keyboard=True
+)
 
-async def receive_problem(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data["problem"] = update.message.text
-    await update.message.reply_text("✅ Принято!\n\n🎁 Шаг 2 из 2\n\nЧто предлагаешь взамен? Это может быть что угодно — нажми отправить ✉️")
-    return WAITING_OFFER
+@dp.message(CommandStart())
+async def start(message: Message):
+    await message.answer("👋 Привет! Опиши свою проблему или желание — и предложи что-то взамен.\n\nНажми кнопку чтобы начать 👇", reply_markup=kb)
 
-async def receive_offer(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    problem = context.user_data.get("problem", "—")
-    offer = update.message.text
-    user = update.message.from_user
-    name = user.first_name or "Аноним"
-    username = f"@{user.username}" if user.username else "нет username"
+@dp.message(F.text == "🚀 Создать заявку")
+async def new_request(message: Message, state: FSMContext):
+    await message.answer("📝 Шаг 1 из 2\n\nОпиши свою проблему или желание и нажми отправить ✉️")
+    await state.set_state(Form.problem)
+
+@dp.message(Form.problem)
+async def receive_problem(message: Message, state: FSMContext):
+    await state.update_data(problem=message.text)
+    await message.answer("✅ Принято!\n\n🎁 Шаг 2 из 2\n\nЧто предлагаешь взамен? Это может быть что угодно — нажми отправить ✉️")
+    await state.set_state(Form.offer)
+
+@dp.message(Form.offer)
+async def receive_offer(message: Message, state: FSMContext):
+    data = await state.get_data()
+    problem = data.get("problem", "—")
+    offer = message.text
+    name = message.from_user.first_name or "Аноним"
+    username = f"@{message.from_user.username}" if message.from_user.username else "нет username"
     card = f"🗂 Новая заявка\n\n👤 Автор: {name} ({username})\n\n❓ Проблема/желание:\n{problem}\n\n🎁 Предлагает взамен:\n{offer}"
-    keyboard = [[KeyboardButton("🚀 Создать заявку")]]
-    markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-    await update.message.reply_text(f"🎉 Готово!\n\n{card}", reply_markup=markup)
-    return ConversationHandler.END
+    await state.clear()
+    await message.answer(f"🎉 Готово!\n\n{card}", reply_markup=kb)
 
-async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("❌ Отменено.")
-    return ConversationHandler.END
-
-def main():
-    import asyncio
-    if sys.version_info >= (3, 12):
-        asyncio.set_event_loop_policy(asyncio.DefaultEventLoopPolicy())
-
-    app = Application.builder().token(TOKEN).build()
-    conv = ConversationHandler(
-        entry_points=[
-            CommandHandler("start", new_request),
-            MessageHandler(filters.Regex("^🚀 Создать заявку$"), new_request)
-        ],
-        states={
-            WAITING_PROBLEM: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_problem)],
-            WAITING_OFFER: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_offer)],
-        },
-        fallbacks=[CommandHandler("cancel", cancel)]
-    )
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(conv)
-    app.run_polling()
+async def main():
+    await dp.start_polling(bot)
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
