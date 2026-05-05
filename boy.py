@@ -1,5 +1,5 @@
+import sys
 import logging
-import asyncio
 from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, ConversationHandler
 
@@ -44,6 +44,10 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 def main():
+    import asyncio
+    if sys.version_info >= (3, 12):
+        asyncio.set_event_loop_policy(asyncio.DefaultEventLoopPolicy())
+
     app = Application.builder().token(TOKEN).build()
     conv = ConversationHandler(
         entry_points=[
